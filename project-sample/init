@@ -1,7 +1,9 @@
-mkdir -p ./{.agent0/logs,src,tests}
+#!/usr/bin/bash
+
+mkdir -p ./{testtask/logs,testtask/src,testtask/tests}
 
 # Initialize SQLite database for state management
-sqlite3 .agent0/execution.db << 'EOF'
+sqlite3 testtask/execution.db << 'EOF'
 CREATE TABLE IF NOT EXISTS tasks (
     id TEXT PRIMARY KEY,
     role TEXT NOT NULL,

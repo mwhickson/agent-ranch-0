@@ -1,8 +1,0 @@
-[
-  {
-    "id": "TASK-001",
-    "role": "BUILDER",
-    "description": "Create a simple Python script in src/hello.py that prints 'Hello from Agent-0' and exits with 0.",
-    "target_file": "src/hello.py"
-  }
-]

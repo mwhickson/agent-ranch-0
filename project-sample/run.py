@@ -7,7 +7,8 @@ import sys
 import os
 
 MODEL_API_URL = "http://localhost:5001/v1/chat/completions" # Adjust to your local endpoint
-DB_PATH = ".agent0/execution.db"
+PROJECT_ROOT = "testtask"
+DB_PATH = PROJECT_ROOT + "/execution.db"
 
 def call_local_llm(prompt, role="BUILDER"):
     system_prompt = f"""You are the {role} agent in the Agent-0 workflow.
@@ -79,8 +80,8 @@ if __name__ == "__main__":
     # Seed DB with task
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute("INSERT OR REPLACE INTO tasks (id, role, description) VALUES ('TASK-001', 'BUILDER', 'Create a script in src/hello.py that prints hello')")
+    cursor.execute("INSERT OR REPLACE INTO tasks (id, role, description) VALUES ('TASK-001', 'BUILDER', 'Create a script in " + PROJECT_ROOT + "/src/hello.py that prints hello')")
     conn.commit()
     conn.close()
 
-    run_task("TASK-001", "BUILDER", "Create a Python file named src/hello.py containing print('Hello Agent-0')")
+    run_task("TASK-001", "BUILDER", "Create a Python file named " + PROJECT_ROOT + "/src/hello.py containing print('Hello Agent-0')")
