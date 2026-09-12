@@ -1,17 +1,17 @@
-# Agent-0 Specification
+# Agent-Ranch-0 Specification
 
 ## Overview
 
-Agent-0 is a human-orchestrated, local-first AI development system for project definition, software engineering, quality assurance, deployment, and maintenance.
+Agent-Ranch-0 is a human-orchestrated, local-first AI development system for project definition, software engineering, quality assurance, deployment, and maintenance.
 
-Agent-0 emphasizes reproducible execution, strict environment boundaries, transparent audit trails, and human-verifiable outputs under the operational principle: **"Always be ready to ship."**
+Agent-Ranch-0 emphasizes reproducible execution, strict environment boundaries, transparent audit trails, and human-verifiable outputs under the operational principle: **"Always be ready to ship."**
 
 ---
 
 ## Technical Stack
 
 ### Approved
-* **Languages & Runtimes:** Go (Wails, Fyne, Bubbletea), Python, Node.js, Bash / Coreutils.
+* **Languages & Runtimes:** Go (Wails, Fyne, Bubbletea), Python, Java, PHP, Node.js (JavaScript/TypeScript), SQL, Bash / Coreutils.
 * **Storage & Data Formats:** Plaintext, Markdown, CSV, XML, JSON, SVG, HTML, CSS, SQLite.
 * **Development & Tooling:** Git, Gitea, Vim, VS Code, Linux (Debian-based; Mint preferred).
 * **Local AI Infrastructure:** GGUF-based models via `llama.cpp` or `Koboldcpp`.

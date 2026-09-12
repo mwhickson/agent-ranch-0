@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-mkdir -p ./{testtask/logs,testtask/src,testtask/tests}
+mkdir -p ./{testtask/logs,testtask/prompts,testtask/src,testtask/tests}
 
 # Initialize SQLite database for state management
 sqlite3 testtask/execution.db << 'EOF'

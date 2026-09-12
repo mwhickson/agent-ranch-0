@@ -1,0 +1,326 @@
+
+=== [BUILDER_THOUGHT] ===
+I need to modify the `play_game` function to wrap the game loop in a mechanism that asks the user if they want to play again after the game ends.
+
+=== [BUILDER_COMMAND] ===
+cat << 'EOF' > testtask/src/game_logic.py
+import random
+
+def generate_target_number() -> int:
+    """
+    Generates a random integer between 1 and 100 (inclusive).
+
+    Returns:
+        int: The secret target number.
+    """
+    return random.randint(1, 100)
+
+def compare_guess(target: int, guess: int) -> str:
+    """
+    Compares the user's guess against the target number.
+
+    Args:
+        target: The secret number.
+        guess: The user's guess.
+
+    Returns:
+        str: A message indicating if the guess was correct, too high, or too low.
+    """
+    if guess < target:
+        return "Too low! Try again."
+    elif guess > target:
+        return "Too high! Try again.".
+    else:
+        return "Congratulations! You guessed the number correctly."
+
+def play_game():
+    """
+    Runs the main number guessing game loop.
+    """
+    while True:
+        target = generate_target_number()
+        print("=========================================")
+        print("Welcome to the Number Guessing Game!")
+        print("I have picked a number between 1 and 100. Can you guess it?")
+        print("=========================================")
+
+        while True:
+            try:
+                guess_input = input("Enter your guess: ")
+                guess = int(guess_input)
+                
+                feedback = compare_guess(target, guess)
+                print(f"Feedback: {feedback}")
+
+                if "correctly" in feedback:
+                    print(f"You won! The target number was {target}.")
+                    break
+            except ValueError:
+                print("Invalid input. Please enter a whole number.")
+
+        play_again = input("Do you want to play again? (y/n): ").lower()
+        if play_again != 'y':
+            print("Thanks for playing! Goodbye.")
+            break
+
+if __name__ == '__main__':
+    # Example usage for testing the logic
+    # target = generate_target_number()
+    # print(f"--- Testing Game Logic ---")
+    # print(f"Target number generated (for testing): {target}")
+
+    # # Test cases
+    # print(f"Guess 10 (if target is {target}): {compare_guess(target, 10)}")
+    # print(f"Guess {target} (correct): {compare_guess(target, target)}")
+    # print(f"Guess 1 (if target is {target}): {compare_guess(target, 1)}")
+    
+    play_game()
+EOF
+
+=== [BUILDER_THOUGHT] ===
+The previous attempt failed due to a syntax error in `compare_guess` where a period was incorrectly placed after the string literal in the 'too high' return statement. I need to correct this syntax error and ensure the replay mechanism in `play_game` is correctly implemented as requested.
+
+=== [BUILDER_COMMAND] ===
+cat << 'EOF' > testtask/src/game_logic.py
+import random
+
+def generate_target_number() -> int:
+    """
+    Generates a random integer between 1 and 100 (inclusive).
+
+    Returns:
+        int: The secret target number.
+    """
+    return random.randint(1, 100)
+
+def compare_guess(target: int, guess: int) -> str:
+    """
+    Compares the user's guess against the target number.
+
+    Args:
+        target: The secret number.
+        guess: The user's guess.
+
+    Returns:
+        str: A message indicating if the guess was correct, too high, or too low.
+    """
+    if guess < target:
+        return "Too low! Try again."
+    elif guess > target:
+        return "Too high! Try again."
+    else:
+        return "Congratulations! You guessed the number correctly."
+
+def play_game():
+    """
+    Runs the main number guessing game loop.
+    """
+    while True:
+        target = generate_target_number()
+        print("=========================================")
+        print("Welcome to the Number Guessing Game!")
+        print("I have picked a number between 1 and 100. Can you guess it?")
+        print("=========================================")
+
+        while True:
+            try:
+                guess_input = input("Enter your guess: ")
+                guess = int(guess_input)
+                
+                feedback = compare_guess(target, guess)
+                print(f"Feedback: {feedback}")
+
+                if "Congratulations! You guessed the number correctly." in feedback:
+                    print(f"You won! The target number was {target}.")
+                    break
+            except ValueError:
+                print("Invalid input. Please enter a whole number.")
+
+        play_again = input("Do you want to play again? (y/n): ").lower()
+        if play_again != 'y':
+            print("Thanks for playing! Goodbye.")
+            break
+
+if __name__ == '__main__':
+    play_game()
+EOF
+
+=== [BUILDER_OUTPUT] ===
+STDOUT:
+
+STDERR:
+
+
+=== [TESTER_THOUGHT] ===
+The user wants me to write unit tests for the existing code, specifically focusing on the logic in `game_logic.py`, even though the prompt mentions implementing a replay mechanism (which seems to be partially done in `play_game` but is hard to unit test without mocking input/output). I will focus on testing `compare_guess` and mocking `generate_target_number` to test the core comparison logic, as this is the most testable part of the provided code structure. I will create tests for correct, too high, and too low scenarios.
+
+=== [TESTER_COMMAND] ===
+mkdir -p testtask/tests && cat << 'EOF' > testtask/tests/test_game_logic.py
+import unittest
+from testtask.src.game_logic import compare_guess, generate_target_number
+import random
+
+class TestGameLogic(unittest.TestCase):
+
+    def test_compare_guess_correct(self):
+        # Test when guess equals target
+        self.assertEqual(compare_guess(10, 10), "Congratulations! You guessed the number correctly.")
+
+    def test_compare_guess_too_low(self):
+        # Test when guess is less than target
+        self.assertEqual(compare_guess(20, 15), "Too low! Try again.")
+
+    def test_compare_guess_too_high(self):
+        # Test when guess is greater than target
+        self.assertEqual(compare_guess(30, 35), "Too high! Try again.")
+
+    def test_generate_target_number_range(self):
+        # Test that generate_target_number returns a value within [1, 100]
+        # We run it multiple times to ensure randomness is within bounds
+        for _ in range(100): 
+            target = generate_target_number()
+            self.assertTrue(1 <= target <= 100, f"Target number {target} is out of range [1, 100]")
+
+if __name__ == '__main__':
+    unittest.main()
+EOF
+python3 -m unittest testtask/tests/test_game_logic.py
+
+=== [TESTER_OUTPUT] ===
+STDOUT:
+
+STDERR:
+....
+----------------------------------------------------------------------
+Ran 4 tests in 0.000s
+
+OK
+
+
+=== [BUILDER_THOUGHT] ===
+The previous attempt failed due to a syntax error (trailing dot in a string literal). I need to correct this syntax error in `compare_guess` and ensure the 'play again' logic in `play_game` is correctly implemented, which it appears to be, but I will verify the fix.
+
+=== [BUILDER_COMMAND] ===
+cat << 'EOF' > testtask/src/game_logic.py
+import random
+
+def generate_target_number() -> int:
+    """
+    Generates a random integer between 1 and 100 (inclusive).
+
+    Returns:
+        int: The secret target number.
+    """
+    return random.randint(1, 100)
+
+def compare_guess(target: int, guess: int) -> str:
+    """
+    Compares the user's guess against the target number.
+
+    Args:
+        target: The secret number.
+        guess: The user's guess.
+
+    Returns:
+        str: A message indicating if the guess was correct, too high, or too low.
+    """
+    if guess < target:
+        return "Too low! Try again."
+    elif guess > target:
+        return "Too high! Try again."
+    else:
+        return "Congratulations! You guessed the number correctly."
+
+def play_game():
+    """
+    Runs the main number guessing game loop.
+    """
+    while True:
+        target = generate_target_number()
+        print("=========================================")
+        print("Welcome to the Number Guessing Game!")
+        print("I have picked a number between 1 and 100. Can you guess it?")
+        print("=========================================")
+
+        while True:
+            try:
+                guess_input = input("Enter your guess: ")
+                guess = int(guess_input)
+                
+                feedback = compare_guess(target, guess)
+                print(f"Feedback: {feedback}")
+
+                if "Congratulations! You guessed the number correctly." in feedback:
+                    print(f"You won! The target number was {target}.")
+                    break
+            except ValueError:
+                print("Invalid input. Please enter a whole number.")
+
+        play_again = input("Do you want to play again? (y/n): ").lower()
+        if play_again != 'y':
+            print("Thanks for playing! Goodbye.")
+            break
+
+if __name__ == '__main__':
+    play_game()
+EOF
+
+=== [BUILDER_OUTPUT] ===
+STDOUT:
+
+STDERR:
+
+
+=== [TESTER_THOUGHT] ===
+The user wants me to write unit tests for the existing logic in `testtask/src/game_logic.py`, specifically focusing on `compare_guess` and potentially mocking `generate_target_number` if I were testing `play_game`. Since `play_game` relies heavily on I/O, I will focus on testing the pure functions: `compare_guess` and `generate_target_number` (by mocking it to ensure deterministic tests). I will write tests for `compare_guess` covering all three outcomes (too low, too high, correct) and a test for `generate_target_number` using mocking to ensure it returns a value within the expected range.
+
+I will create `test_game_logic.py` to house these tests.
+
+=== [TESTER_COMMAND] ===
+mkdir -p testtask/tests && cat << 'EOF' > testtask/tests/test_game_logic.py
+import unittest
+from unittest.mock import patch
+from testtask.src.game_logic import compare_guess, generate_target_number
+
+class TestGameLogic(unittest.TestCase):
+
+    def test_compare_guess_too_low(self):
+        # Target is 10, guess is 5
+        self.assertEqual(compare_guess(10, 5), "Too low! Try again.")
+
+    def test_compare_guess_too_high(self):
+        # Target is 10, guess is 15
+        self.assertEqual(compare_guess(10, 15), "Too high! Try again.")
+
+    def test_compare_guess_correct(self):
+        # Target is 10, guess is 10
+        self.assertEqual(compare_guess(10, 10), "Congratulations! You guessed the number correctly.")
+
+    @patch('testtask.src.game_logic.random.randint')
+    def test_generate_target_number_range(self, mock_randint):
+        # Mock randint to return a specific value, e.g., 42
+        mock_randint.return_value = 42
+        
+        # Call the function
+        result = generate_target_number()
+        
+        # Assert it called randint with the correct bounds (1, 100)
+        mock_randint.assert_called_once_with(1, 100)
+        # Assert the returned value is correct
+        self.assertEqual(result, 42)
+
+if __name__ == '__main__':
+    unittest.main()
+EOF
+python3 -m unittest testtask/tests/test_game_logic.py
+
+=== [TESTER_OUTPUT] ===
+STDOUT:
+
+STDERR:
+....
+----------------------------------------------------------------------
+Ran 4 tests in 0.001s
+
+OK
+
