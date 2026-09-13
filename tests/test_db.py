@@ -32,7 +32,8 @@ class TestDatabase(unittest.TestCase):
 
     def test_verifications_and_feedback(self):
         self.db.log_verification("T1", "TESTER", "FAIL", "AssertionError: Expected 50 got 10")
-        feedback = self.db.get_last_failure_feedback("T1")
+        verifier_role, feedback = self.db.get_last_failure_feedback("T1")
+        self.assertEqual(verifier_role, "TESTER")
         self.assertEqual(feedback, "AssertionError: Expected 50 got 10")
 
     def test_get_pending_tasks(self):

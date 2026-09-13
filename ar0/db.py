@@ -56,15 +56,17 @@ class Database:
                 (task_id, role, result, feedback)
             )
 
-    def get_last_failure_feedback(self, task_id: str) -> str:
+    # Add or update in db.py
+    def get_last_failure_feedback(self, task_id: str) -> tuple[str, str]:
+        """Returns (verifier_role, feedback) for the most recent failure."""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT feedback FROM verifications WHERE task_id = ? AND result = 'FAIL' ORDER BY id DESC LIMIT 1",
+                "SELECT verifier_role, feedback FROM verifications WHERE task_id = ? AND result = 'FAIL' ORDER BY id DESC LIMIT 1",
                 (task_id,)
             )
             row = cursor.fetchone()
-            return row[0] if row else ""
+            return (row[0], row[1]) if row else ("", "")
 
     def get_pending_tasks(self) -> List[str]:
         with self.get_connection() as conn:

@@ -15,7 +15,7 @@ class TestOrchestrator(unittest.TestCase):
         os.makedirs(self.config.prompt_dir, exist_ok=True)
 
         # Create dummy prompt files needed by Orchestrator
-        for p in ["planner_system.txt", "builder_system.txt", "tester_system.txt"]:
+        for p in ["planner_system.txt", "builder_system.txt", "reviewer_system.txt", "tester_system.txt"]:
             with open(os.path.join(self.config.prompt_dir, p), "w", encoding="utf-8") as f:
                 f.write("System prompt context")
 
@@ -44,7 +44,22 @@ class TestOrchestrator(unittest.TestCase):
             self.assertIsNotNone(result)
             self.assertEqual(result["action"], "write")
 
-    @patch("builtins.input", side_effect=["y"])  # Approve Builder execution
+    def test_run_reviewer_phase_pass_and_reject(self):
+        # Test PASS payload
+        pass_json = '{"status": "PASS", "thought": "Clean code", "feedback": ""}'
+        with patch.object(self.orchestrator.llm, "call", return_value=pass_json):
+            passed, feedback = self.orchestrator.run_reviewer_phase("T1", "Audit task")
+            self.assertTrue(passed)
+            self.assertEqual(feedback, "")
+
+        # Test FAIL payload
+        fail_json = '{"status": "FAIL", "thought": "Tightly coupled", "feedback": "Extract input prompt from while loop"}'
+        with patch.object(self.orchestrator.llm, "call", return_value=fail_json):
+            passed, feedback = self.orchestrator.run_reviewer_phase("T1", "Audit task")
+            self.assertFalse(passed)
+            self.assertEqual(feedback, "Extract input prompt from while loop")
+
+    @patch("builtins.input", side_effect=["y"])  # Approve Builder execution before tester
     def test_execute_workflow_pass_flow(self, mock_input):
         with self.db.get_connection() as conn:
             conn.execute("INSERT INTO tasks (id, role, description) VALUES ('T1', 'BUILDER', 'Build feature')")
@@ -54,6 +69,7 @@ class TestOrchestrator(unittest.TestCase):
         with patch.object(self.orchestrator, "run_builder_phase", return_value=builder_payload), \
              patch.object(self.orchestrator.runner, "execute_shell") as mock_shell, \
              patch.object(self.orchestrator.runner, "validate_syntax", return_value=(True, "")), \
+             patch.object(self.orchestrator, "run_reviewer_phase", return_value=(True, "")), \
              patch.object(self.orchestrator, "run_tester_phase", return_value=(True, "Tests Passed")):
 
             mock_shell.return_value.returncode = 0
@@ -76,6 +92,7 @@ class TestOrchestrator(unittest.TestCase):
         with patch.object(self.orchestrator, "run_builder_phase", return_value=builder_payload), \
              patch.object(self.orchestrator.runner, "execute_shell") as mock_shell, \
              patch.object(self.orchestrator.runner, "validate_syntax", return_value=(True, "")), \
+             patch.object(self.orchestrator, "run_reviewer_phase", return_value=(True, "")), \
              patch.object(self.orchestrator, "run_tester_phase", return_value=(False, "Assertion error")):
 
             mock_shell.return_value.returncode = 0
@@ -111,10 +128,39 @@ class TestOrchestrator(unittest.TestCase):
         mock_tester.assert_not_called()
         mock_input.assert_not_called()
 
-    @patch("builtins.input", side_effect=["y"])  # If tester prompt or flow occurs
+    @patch("builtins.input")
     @patch("ar0.orchestrator.Orchestrator.run_builder_phase")
+    @patch("ar0.orchestrator.Orchestrator.run_reviewer_phase")
     @patch("ar0.orchestrator.Orchestrator.run_tester_phase")
-    def test_execute_workflow_noop_passes_when_workspace_syntax_is_valid(self, mock_tester, mock_builder, mock_input):
+    def test_execute_workflow_reviewer_rejection_retries_without_testing_or_prompting(self, mock_tester, mock_reviewer, mock_builder, mock_input):
+        with self.db.get_connection() as conn:
+            conn.execute("INSERT INTO tasks (id, role, description, status, retry_count) VALUES ('T1', 'BUILDER', 'Test Task', 'PENDING', 0)")
+            conn.commit()
+
+        mock_builder.return_value = {
+            "thought": "Wrote coupled code",
+            "action": "execute_shell",
+            "command": "cat << 'EOF' > src/main.py\nprint('hello')\nEOF"
+        }
+
+        self.orchestrator.runner.execute_shell = MagicMock(return_value=MagicMock(returncode=0, stdout="", stderr=""))
+        self.orchestrator.runner.validate_syntax = MagicMock(return_value=(True, ""))
+        
+        # Reviewer rejects structural design
+        mock_reviewer.return_value = (False, "Code is not modular. Separate logic from CLI.")
+
+        status = self.orchestrator.execute_workflow("T1")
+
+        self.assertEqual(status, "BLOCKED")
+        mock_reviewer.assert_called()
+        mock_tester.assert_not_called()
+        mock_input.assert_not_called()
+
+    @patch("builtins.input", side_effect=["y"])
+    @patch("ar0.orchestrator.Orchestrator.run_builder_phase")
+    @patch("ar0.orchestrator.Orchestrator.run_reviewer_phase")
+    @patch("ar0.orchestrator.Orchestrator.run_tester_phase")
+    def test_execute_workflow_noop_passes_when_workspace_syntax_is_valid(self, mock_tester, mock_reviewer, mock_builder, mock_input):
         with self.db.get_connection() as conn:
             conn.execute("INSERT INTO tasks (id, role, description, status, retry_count) VALUES ('T2', 'BUILDER', 'Noop Task', 'PENDING', 0)")
             conn.commit()
@@ -127,11 +173,13 @@ class TestOrchestrator(unittest.TestCase):
 
         # Mock workspace syntax check passing & tester passing
         self.orchestrator.runner.validate_syntax = MagicMock(return_value=(True, ""))
+        mock_reviewer.return_value = (True, "")
         mock_tester.return_value = (True, "Tests Passed")
 
         status = self.orchestrator.execute_workflow("T2")
 
         self.assertEqual(status, "PASS")
+        mock_reviewer.assert_not_called()  # Reviewer is skipped for NO_OPs
         mock_tester.assert_called_once()
 
     @patch("ar0.orchestrator.Orchestrator.run_builder_phase")

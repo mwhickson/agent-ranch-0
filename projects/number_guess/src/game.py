@@ -1,47 +1,57 @@
 import random
+import sys
 
-def generate_random_number():
-    """Generates a random integer between 1 and 100 inclusive."""
+def generate_target() -> int:
+    """Generates a random target number between 1 and 100."""
     return random.randint(1, 100)
 
-def main_game_loop():
-    """Implements the core game loop structure for a single round."""
-    print("--- Welcome to the Number Guessing Game! ---")
-    secret_number = generate_random_number()
-    attempts = 0
-    guess = None
+def evaluate_guess(secret: int, guess: int) -> str:
+    """Compares the guess to the secret number and returns feedback."""
+    if guess < secret:
+        return "Too low! Try a higher number."
+    elif guess > secret:
+        return "Too high! Try a lower number."
+    else:
+        return "Congratulations! You guessed the number correctly."
 
-    while guess != secret_number:
+def play_round(secret: int) -> bool:
+    """Handles a single round of the guessing game."""
+    print("--- New Game Round ---")
+    print("I have selected a number between 1 and 100. Can you guess it?")
+    
+    while True:
         try:
-            guess_input = input(f"Enter your guess (1-100): ")
+            guess_input = input("Enter your guess: ")
             guess = int(guess_input)
-            attempts += 1
-
-            if guess < 1 or guess > 100:
+            
+            if not (1 <= guess <= 100):
                 print("Please enter a number between 1 and 100.")
                 continue
 
-            if guess < secret_number:
-                print("Too low! Try again.")
-            elif guess > secret_number:
-                print("Too high! Try again.")
-            else:
-                print(f"Congratulations! You guessed the number {secret_number} in {attempts} attempts.")
-                break
+            feedback = evaluate_guess(secret, guess)
+            print(feedback)
+            
+            if "correctly" in feedback:
+                return True  # Game won
+            
         except ValueError:
-            print("Invalid input. Please enter a valid integer.")
-
+            print("Invalid input. Please enter an integer.")
 
 def main():
-    """Main application entry point to handle multiple game rounds."""
+    """Main function to run the game loop."""
     while True:
-        main_game_loop()
+        secret_number = generate_target()
         
-        # Ask user if they want to play again
-        play_again = input("Do you want to play another round? (y/n): ").lower()
-        if play_again != 'y':
-            print("Thank you for playing! Goodbye.")
-            break
+        won = play_round(secret_number)
+        
+        if won:
+            play_again = input("Would you like to play another round? (y/n): ").lower().strip()
+            if play_again != 'y':
+                print("Thanks for playing! Goodbye.")
+                break
+        else:
+            # This path should ideally not be hit if play_round always returns True on win
+            print("Round ended unexpectedly. Starting a new round.")
 
-if __name__ == "__main__":
+if __name__ == "__main__": # Added missing colon
     main()

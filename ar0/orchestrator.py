@@ -37,7 +37,7 @@ class Orchestrator:
         print(f"[ORCHESTRATOR DEBUG] Raw Planner Output:\n{raw_response}")
         return []
 
-    def run_builder_phase(self, task_id: str, description: str, last_feedback: str = "") -> dict:
+    def run_builder_phase(self, task_id: str, description: str, verifier_role: str = "", last_feedback: str = "") -> dict:
         system_prompt = self.load_prompt("builder_system.txt")
         context = self.runner.get_workspace_context()
 
@@ -46,7 +46,7 @@ class Orchestrator:
             f"Task: {description}"
         )
         if last_feedback:
-            user_prompt += f"\n\nPREVIOUS ATTEMPT FAILED WITH FEEDBACK:\n{last_feedback}\nPlease fix the issues."
+            user_prompt += f"\n\nPREVIOUS ATTEMPT REJECTED BY [{verifier_role}]:\n{last_feedback}\nPlease address these specific issues."
 
         raw_response = self.llm.call(system_prompt, user_prompt)
         parsed = self.llm.parse_json(raw_response)
@@ -77,6 +77,37 @@ class Orchestrator:
                 return None
 
         return parsed
+
+    def run_reviewer_phase(self, task_id: str, description: str) -> tuple[bool, str]:
+        system_prompt = self.load_prompt("reviewer_system.txt")
+        context = self.runner.get_workspace_context()
+
+        user_prompt = (
+            f"CURRENT WORKSPACE CONTEXT:\n{context}\n\n"
+            f"Target Task: {description}\n\n"
+            f"INSTRUCTION: Review the source code in `src/` against decoupling and testability rules. "
+            f"Decide if the code PASSES architectural review or REJECTS with specific actionable feedback."
+        )
+
+        raw_response = self.llm.call(system_prompt, user_prompt)
+        payload = self.llm.parse_json(raw_response)
+
+        if isinstance(payload, list):
+            payload = payload[0] if len(payload) > 0 and isinstance(payload[0], dict) else {}
+        elif not isinstance(payload, dict):
+            payload = {}
+
+        status = payload.get("status", "").upper()
+        feedback = payload.get("feedback", "")
+        thought = payload.get("thought", "N/A")
+
+        self.runner.log_to_file(task_id, "REVIEWER_THOUGHT", thought)
+        print(f"\n[REVIEWER THOUGHT]: {thought}")
+
+        if status == "PASS":
+            return True, ""
+        else:
+            return False, feedback if feedback else "Reviewer rejected the code structure without specific feedback."
 
     def run_tester_phase(self, task_id: str, description: str, builder_output: str, test_error_context: str = None) -> tuple[bool, str]:
         system_prompt = self.load_prompt("tester_system.txt")
@@ -135,20 +166,21 @@ class Orchestrator:
         role, description, status, retries = row
 
         while retries < self.config.max_retries:
-            last_feedback = self.db.get_last_failure_feedback(task_id)
-
             print(f"\n==========================================")
             print(f"[ORCHESTRATOR] Task {task_id} | Attempt {retries + 1}/{self.config.max_retries}")
             print(f"Description: {description}")
             print(f"==========================================")
 
+            # Fetch previous failure info (role + feedback)
+            verifier_role, last_feedback = self.db.get_last_failure_feedback(task_id)
+
             # 1. BUILDER PHASE
-            builder_payload = self.run_builder_phase(task_id, description, last_feedback)
+            builder_payload = self.run_builder_phase(task_id, description, verifier_role, last_feedback)
             if not builder_payload:
                 print("[ORCHESTRATOR] Builder phase failed (read-only command or invalid JSON). Retrying attempt...")
                 self.db.update_task_status(task_id, 'FAIL', increment_retry=True)
                 retries += 1
-                last_feedback = "CRITICAL ERROR: Read-only bash commands (e.g. 'cat', 'ls') are strictly forbidden! You MUST write code using write redirection (e.g. 'cat << EOF > file') or return a 'no_op'."
+                last_feedback = "CRITICAL ERROR: Read-only bash commands are strictly forbidden! You MUST write code using write redirection (e.g. 'cat << EOF > file') or return a 'no_op'."
                 self.db.log_verification(task_id, 'SYSTEM', 'FAIL', last_feedback)
                 continue
 
@@ -161,7 +193,6 @@ class Orchestrator:
             is_builder_noop = builder_payload.get("action") == "no_op" or builder_payload["command"].strip() == "NO_OP"
 
             if not is_builder_noop:
-                # Execute builder command before human approval to perform syntax check
                 res = self.runner.execute_shell(builder_payload['command'])
                 self.runner.log_to_file(task_id, "BUILDER_OUTPUT", f"STDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}")
 
@@ -185,18 +216,33 @@ class Orchestrator:
                 retries += 1
                 continue
 
+            builder_output = builder_payload.get("command", "")
+            self.db.update_task_status(task_id, 'REVIEW_PENDING')
+
+            # 2. REVIEWER PHASE (Architectural Gatekeeping)
             if not is_builder_noop:
-                # Code executed cleanly and passed syntax check—now request human approval
+                print("\n[ORCHESTRATOR] Handing off to REVIEWER agent for architectural audit...")
+                review_passed, review_feedback = self.run_reviewer_phase(task_id, description)
+
+                if not review_passed:
+                    print(f"\n[REVIEWER RESULT] REJECT! Code violates structural/testability guidelines.\nFeedback: {review_feedback}")
+                    self.db.update_task_status(task_id, 'FAIL', increment_retry=True)
+                    self.db.log_verification(task_id, 'REVIEWER', 'FAIL', review_feedback)
+                    retries += 1
+                    continue  # Short-circuit back to Builder immediately
+
+                print("\n[REVIEWER RESULT] PASS! Code structure is clean and testable.")
+                self.db.log_verification(task_id, 'REVIEWER', 'PASS', "Code meets architectural standards.")
+
+            # Single Human Approval Prompt before running unit tests
+            if not is_builder_noop:
                 if input("Approve BUILDER execution and proceed to testing? (y/n): ").strip().lower() != 'y':
                     print("[ORCHESTRATOR] Builder denied by human operator.")
                     return "BLOCKED"
             else:
                 print("\n[BUILDER RESULT] Task already satisfied by existing code (NO_OP). Handing off to TESTER for verification...")
 
-            builder_output = builder_payload.get("command", "")
-            self.db.update_task_status(task_id, 'REVIEW_PENDING')
-
-            # 2. VERIFICATION / TESTER PHASE
+            # 3. VERIFICATION / TESTER PHASE
             print("\n[ORCHESTRATOR] Handing off to TESTER agent...")
 
             tester_loop_active = True
