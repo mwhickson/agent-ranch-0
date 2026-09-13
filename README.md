@@ -17,6 +17,12 @@ python3 run.py projects/myawesomeproject
 
 > NOTE: Until I get this fleshed out, the steps above are mostly aspirational.
 
+## Tests
+
+```bash
+python3 -m unittest discover -s tests -p "test_*.py"
+```
+
 ## Tools
 
 - [Koboldcpp](https://github.com/LostRuins/koboldcpp)
