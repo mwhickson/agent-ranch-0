@@ -2,7 +2,7 @@
 
 - split (or at least reorganize) `run.py` into something more human-friendly (though Gemini has done pretty good so far)
 - update init script to allow for named folder setup, including stubs for PROJECT_SPEC.md, etc.
-- add a second testtask in another language (e.g. Go) to mirror the Python example to ensure the basic functionality holds up across languages
+- add a second project in another language (e.g. Go) to mirror the Python example to ensure the basic functionality holds up across languages
 - allow agents greater autonomy (i.e. no need to check in with the human orchestrator for every task)
 - allow "second opinion" agents - effectively the ability for an agent to generate a twin (in the same role/context) for pairing (programming, testing, reviewing, etc.) to produce highest/higher quality results
 - allow splitting of roles internally into specific domains of concern - allow for security, accessibility, optimization, etc.
