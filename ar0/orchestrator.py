@@ -55,6 +55,11 @@ class Orchestrator:
             print("[ORCHESTRATOR ERROR] Builder returned completely invalid JSON.")
             return None
 
+        if isinstance(parsed, list):
+            parsed = parsed[0] if len(parsed) > 0 and isinstance(parsed[0], dict) else {}
+        elif not isinstance(parsed, dict):
+            parsed = {}
+
         if "command" not in parsed:
             print("[ORCHESTRATOR ERROR] Builder JSON missing required 'command' field.")
             self.runner.log_to_file(task_id, "BUILDER_RAW_RESPONSE", raw_response)
@@ -98,6 +103,11 @@ class Orchestrator:
 
         raw_response = self.llm.call(system_prompt, user_prompt)
         payload = self.llm.parse_json(raw_response)
+
+        if isinstance(payload, list):
+            payload = payload[0] if len(payload) > 0 and isinstance(payload[0], dict) else {}
+        elif not isinstance(payload, dict):
+            payload = {}
 
         if not payload or "command" not in payload:
             return False, "Tester failed to generate a valid test payload."
@@ -150,55 +160,55 @@ class Orchestrator:
 
             is_builder_noop = builder_payload.get("action") == "no_op" or builder_payload["command"].strip() == "NO_OP"
 
-            if is_builder_noop:
-                print("\n[BUILDER RESULT] Task already satisfied (NO_OP). Skipping execution and verification.")
-                self.db.update_task_status(task_id, 'PASS')
-                self.db.log_verification(task_id, 'SYSTEM', 'PASS', "Task satisfied via NO_OP.")
-                return "PASS"
+            if not is_builder_noop:
+                # Execute builder command before human approval to perform syntax check
+                res = self.runner.execute_shell(builder_payload['command'])
+                self.runner.log_to_file(task_id, "BUILDER_OUTPUT", f"STDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}")
 
-            # Execute builder command before human approval to perform syntax check
-            res = self.runner.execute_shell(builder_payload['command'])
-            self.runner.log_to_file(task_id, "BUILDER_OUTPUT", f"STDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}")
+                if res.returncode != 0:
+                    print(f"[BUILDER RESULT] FAIL - Shell command execution error (Exit Code {res.returncode})")
+                    print(res.stderr if res.stderr else res.stdout)
+                    self.db.update_task_status(task_id, 'FAIL', increment_retry=True)
+                    self.db.log_verification(task_id, 'SYSTEM', 'FAIL', res.stderr if res.stderr else res.stdout)
+                    retries += 1
+                    continue
+            else:
+                print("\n[BUILDER RESULT] Builder issued NO_OP. Verifying workspace syntax before proceeding...")
 
-            if res.returncode != 0:
-                print(f"[BUILDER RESULT] FAIL - Shell command execution error (Exit Code {res.returncode})")
-                print(res.stderr if res.stderr else res.stdout)
-                self.db.update_task_status(task_id, 'FAIL', increment_retry=True)
-                self.db.log_verification(task_id, 'SYSTEM', 'FAIL', res.stderr if res.stderr else res.stdout)
-                retries += 1
-                continue
-
+            # Validate syntax for BOTH active edits and NO_OP actions
             valid_syntax, syntax_error = self.runner.validate_syntax()
             if not valid_syntax:
-                print(f"\n[BUILDER RESULT] FAIL - Code broke syntax/compiler checks!")
+                print(f"\n[BUILDER RESULT] FAIL - Existing code contains syntax/compiler errors!")
                 print(syntax_error)
                 self.db.update_task_status(task_id, 'FAIL', increment_retry=True)
-                self.db.log_verification(task_id, 'SYSTEM', 'FAIL', syntax_error)
+                self.db.log_verification(task_id, 'SYSTEM', 'FAIL', f"NO_OP REJECTED due to existing syntax errors:\n{syntax_error}")
                 retries += 1
                 continue
 
-            # Code executed cleanly and passed syntax check—now request human approval
-            if input("Approve BUILDER execution and proceed to testing? (y/n): ").strip().lower() != 'y':
-                print("[ORCHESTRATOR] Builder denied by human operator.")
-                return "BLOCKED"
+            if not is_builder_noop:
+                # Code executed cleanly and passed syntax check—now request human approval
+                if input("Approve BUILDER execution and proceed to testing? (y/n): ").strip().lower() != 'y':
+                    print("[ORCHESTRATOR] Builder denied by human operator.")
+                    return "BLOCKED"
+            else:
+                print("\n[BUILDER RESULT] Task already satisfied by existing code (NO_OP). Handing off to TESTER for verification...")
 
             builder_output = builder_payload.get("command", "")
             self.db.update_task_status(task_id, 'REVIEW_PENDING')
 
             # 2. VERIFICATION / TESTER PHASE
-            print("\n[ORCHESTRATOR] Builder phase complete and validated. Handing off to TESTER agent...")
+            print("\n[ORCHESTRATOR] Handing off to TESTER agent...")
 
             tester_loop_active = True
             test_error_context = None
 
             while tester_loop_active:
-                max_tester_retries = 2
                 passed = False
                 test_feedback = ""
 
-                for test_attempt in range(max_tester_retries):
+                for test_attempt in range(self.config.max_tester_retries):
                     if test_attempt > 0:
-                        print(f"\n[ORCHESTRATOR] Asking TESTER to review/fix its own test suite (Attempt {test_attempt + 1}/{max_tester_retries})...")
+                        print(f"\n[ORCHESTRATOR] Asking TESTER to review/fix its own test suite (Attempt {test_attempt + 1}/{self.config.max_tester_retries})...")
 
                     passed, test_feedback = self.run_tester_phase(
                         task_id, description, builder_output, test_error_context=test_error_context

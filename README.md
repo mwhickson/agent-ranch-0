@@ -2,6 +2,18 @@
 
 A locally-based agentic workflow system based around human-guided task completion.
 
+## Warning
+
+This project is interesting, but still very much at "toy" level.
+
+I suspect it could provide the basis for something more impressive, both with respect to code generation -- AND non-code related tasks.
+
+Consider yourself warned.
+
+> WARN: Python seems reasonably reliable.
+> The stress test with Go indicates a number of issues related to repeated syntax errors, flaky tests, and issues testing I/O for game playability.
+> I strongly recommend Python for any experimentation at this point.
+
 ## Usage
 
 1. Create a project.
@@ -21,8 +33,6 @@ cd ../..
 python3 run.py projects/myawesomeproject
 ```
 
-> NOTE: Until I get this fleshed out, the steps above are mostly aspirational.
-
 ## Tests
 
 ```bash
@@ -33,5 +43,5 @@ python3 -m unittest discover -s tests -p "test_*.py"
 
 - [Koboldcpp](https://github.com/LostRuins/koboldcpp)
 - Gemma 4 (Unsloth QAT models)
-    - [gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf](https://huggingface.co/unsloth/gemma-4-E2B-it-qat-GGUF)
+    - [gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf](https://huggingface.co/unsloth/gemma-4-E2B-it-qat-GGUF) **PREFERRED**
     - [gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf](https://huggingface.co/unsloth/gemma-4-E4B-it-qat-GGUF)

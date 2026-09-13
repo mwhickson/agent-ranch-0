@@ -111,9 +111,10 @@ class TestOrchestrator(unittest.TestCase):
         mock_tester.assert_not_called()
         mock_input.assert_not_called()
 
+    @patch("builtins.input", side_effect=["y"])  # If tester prompt or flow occurs
     @patch("ar0.orchestrator.Orchestrator.run_builder_phase")
     @patch("ar0.orchestrator.Orchestrator.run_tester_phase")
-    def test_execute_workflow_noop_bypasses_tester_and_passes(self, mock_tester, mock_builder):
+    def test_execute_workflow_noop_passes_when_workspace_syntax_is_valid(self, mock_tester, mock_builder, mock_input):
         with self.db.get_connection() as conn:
             conn.execute("INSERT INTO tasks (id, role, description, status, retry_count) VALUES ('T2', 'BUILDER', 'Noop Task', 'PENDING', 0)")
             conn.commit()
@@ -124,9 +125,34 @@ class TestOrchestrator(unittest.TestCase):
             "command": "NO_OP"
         }
 
+        # Mock workspace syntax check passing & tester passing
+        self.orchestrator.runner.validate_syntax = MagicMock(return_value=(True, ""))
+        mock_tester.return_value = (True, "Tests Passed")
+
         status = self.orchestrator.execute_workflow("T2")
 
         self.assertEqual(status, "PASS")
+        mock_tester.assert_called_once()
+
+    @patch("ar0.orchestrator.Orchestrator.run_builder_phase")
+    @patch("ar0.orchestrator.Orchestrator.run_tester_phase")
+    def test_execute_workflow_noop_fails_if_workspace_has_syntax_errors(self, mock_tester, mock_builder):
+        with self.db.get_connection() as conn:
+            conn.execute("INSERT INTO tasks (id, role, description, status, retry_count) VALUES ('T2', 'BUILDER', 'Noop Task', 'PENDING', 0)")
+            conn.commit()
+
+        mock_builder.return_value = {
+            "thought": "Already done",
+            "action": "no_op",
+            "command": "NO_OP"
+        }
+
+        # Simulate broken syntax in workspace
+        self.orchestrator.runner.validate_syntax = MagicMock(return_value=(False, "Go syntax error"))
+
+        status = self.orchestrator.execute_workflow("T2")
+
+        self.assertEqual(status, "BLOCKED")
         mock_tester.assert_not_called()
 
 

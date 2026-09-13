@@ -7,8 +7,9 @@ class Config:
     project_dir: str
     model_api_url: str = "http://localhost:5001/v1/chat/completions"
     temperature: float = 0.1
-    max_retries: int = 3
-    timeout: int = 600  # Bump default to 10 minutes for local inference
+    max_retries: int = 5
+    max_tester_retries: int = 3  # Configurable retry limit for internal tester review
+    timeout: int = 600
 
     @property
     def db_path(self) -> str:
@@ -44,5 +45,9 @@ class Config:
             temp_match = re.search(r"TEMPERATURE=([0-9.]+)", content)
             if temp_match:
                 config.temperature = float(temp_match.group(1))
+
+            tester_retries_match = re.search(r"MAX_TESTER_RETRIES=([0-9]+)", content)
+            if tester_retries_match:
+                config.max_tester_retries = int(tester_retries_match.group(1))
 
         return config

@@ -1,0 +1,332 @@
+
+=== [BUILDER_THOUGHT] ===
+The existing `src/main.go` already implements the game flow control, including asking the user if they want to play again and breaking the loop if they answer 'no'. I will confirm this by checking the existing code structure.
+
+=== [BUILDER_COMMAND] ===
+NO_OP
+
+=== [BUILDER_THOUGHT] ===
+The previous attempt failed due to using `"\n"` instead of `\n` in `reader.ReadString` calls. I need to correct these string literals in `src/main.go` to properly read input until a newline.
+
+=== [BUILDER_COMMAND] ===
+cat << 'EOF' > src/main.go
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"math/rand"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+)
+
+// generateRandomNumber generates a random integer between min and max (inclusive).
+func generateRandomNumber(min, max int) int {
+	return rand.Intn(max-min+1) + min
+}
+
+// getGuess reads a guess from standard input.
+func getGuess(reader *bufio.Reader) (int, error) {
+	fmt.Print("Enter your guess (1-100): ")
+	input, err := reader.ReadString("\n") // Read until newline
+
+	if err != nil {
+		return 0, err
+	}
+
+	// Trim whitespace and parse the input
+	guessStr := strings.TrimSpace(input)
+
+	guess, err := strconv.Atoi(guessStr)
+
+	if err != nil {
+		return 0, fmt.Errorf("invalid input: '%s' is not an integer", guessStr)
+	}
+
+	return guess, nil
+}
+
+func main() {
+	// Seed the random number generator
+	rand.Seed(time.Now().UnixNano())
+
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Println("--- Welcome to the Number Guessing Game! ---")
+
+	// Game loop for multiple rounds
+	for {
+		// 1. Select random number
+		secretNumber := generateRandomNumber(1, 100)
+		fmt.Println("\nA new game has started. I have picked a number between 1 and 100.")
+
+		// 2. Get user guess
+		guess, err := getGuess(reader)
+		if err != nil {
+			fmt.Printf("Error reading input: %v. Exiting.\n", err)
+			break
+		}
+
+		// 3. Provide feedback
+		if guess < secretNumber {
+			fmt.Println("Too low! Try again.")
+		} else if guess > secretNumber {
+			fmt.Println("Too high! Try again.")
+		} else {
+			fmt.Println("Congratulations! You guessed the number correctly.")
+		}
+
+		// 4. Ask to play again
+		fmt.Print("Do you want to play again? (yes/no): ")
+		playAgainInput, err := reader.ReadString("\n") // Read until newline
+		if err != nil {
+			fmt.Printf("Error reading play again input: %v. Exiting.\n", err)
+			break
+		}
+		playAgain := strings.ToLower(strings.TrimSpace(playAgainInput)) == "yes"
+
+		if !playAgain {
+		fmt.Println("Thanks for playing! Goodbye.")
+			break
+		}
+	}
+}
+EOF
+
+=== [BUILDER_OUTPUT] ===
+STDOUT:
+
+STDERR:
+
+
+=== [BUILDER_THOUGHT] ===
+The previous attempt failed because `reader.ReadString("
+")` incorrectly passes a string literal containing a newline character as the argument, when `ReadString` expects a delimiter string. The fix is to pass `"\n"` or simply `"\n"` if we want to read until a newline, but since `ReadString` reads until the specified separator, passing `"\n"` is correct for reading until the user presses Enter.
+
+=== [BUILDER_COMMAND] ===
+cat << 'EOF' > src/main.go
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"math/rand"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+)
+
+// generateRandomNumber generates a random integer between min and max (inclusive).
+func generateRandomNumber(min, max int) int {
+	return rand.Intn(max-min+1) + min
+}
+
+// getGuess reads a guess from standard input.
+func getGuess(reader *bufio.Reader) (int, error) {
+	fmt.Print("Enter your guess (1-100): ")
+	input, err := reader.ReadString("\n") // Read until newline
+
+	if err != nil {
+		return 0, err
+	}
+
+	// Trim whitespace and parse the input
+	guessStr := strings.TrimSpace(input)
+
+	guess, err := strconv.Atoi(guessStr)
+
+	if err != nil {
+		return 0, fmt.Errorf("invalid input: '%s' is not an integer", guessStr)
+	}
+
+	return guess, nil
+}
+
+func main() {
+	// Seed the random number generator
+	rand.Seed(time.Now().UnixNano())
+
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Println("--- Welcome to the Number Guessing Game! ---")
+
+	// Game loop for multiple rounds
+	for {
+		// 1. Select random number
+		secretNumber := generateRandomNumber(1, 100)
+		fmt.Println("\nA new game has started. I have picked a number between 1 and 100.")
+
+		// 2. Get user guess
+		guess, err := getGuess(reader)
+		if err != nil {
+			fmt.Printf("Error reading input: %v. Exiting.\n", err)
+			break
+		}
+
+		// 3. Provide feedback
+		if guess < secretNumber {
+			fmt.Println("Too low! Try again.")
+		} else if guess > secretNumber {
+			fmt.Println("Too high! Try again.")
+		} else {
+			fmt.Println("Congratulations! You guessed the number correctly.")
+		}
+
+		// 4. Ask to play again
+		fmt.Print("Do you want to play again? (yes/no): ")
+		playAgainInput, err := reader.ReadString("\n") // Read until newline
+		if err != nil {
+			fmt.Printf("Error reading play again input: %v. Exiting.\n", err)
+			break
+		}
+		playAgain := strings.ToLower(strings.TrimSpace(playAgainInput)) == "yes"
+
+		if !playAgain {
+		fmt.Println("Thanks for playing! Goodbye.")
+			break
+		}
+	}
+}
+EOF
+
+=== [BUILDER_OUTPUT] ===
+STDOUT:
+
+STDERR:
+
+
+=== [BUILDER_THOUGHT] ===
+The previous attempt failed due to using `
+` (an untyped string constant) where a byte value was expected in `reader.ReadString()`. I need to replace `
+` with the actual newline byte `'
+'` in both calls to `reader.ReadString()` within `getGuess` and the main loop.
+
+=== [BUILDER_COMMAND] ===
+cat << 'EOF' > src/main.go
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"math/rand"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+)
+
+// generateRandomNumber generates a random integer between min and max (inclusive).
+func generateRandomNumber(min, max int) int {
+	return rand.Intn(max-min+1) + min
+}
+
+// getGuess reads a guess from standard input.
+func getGuess(reader *bufio.Reader) (int, error) {
+	fmt.Print("Enter your guess (1-100): ")
+	input, err := reader.ReadString('\n') // Read until newline
+
+	if err != nil {
+		return 0, err
+	}
+
+	// Trim whitespace and parse the input
+	guessStr := strings.TrimSpace(input)
+
+	guess, err := strconv.Atoi(guessStr)
+
+	if err != nil {
+		return 0, fmt.Errorf("invalid input: '%s' is not an integer", guessStr)
+	}
+
+	return guess, nil
+}
+
+func main() {
+	// Seed the random number generator
+	rand.Seed(time.Now().UnixNano())
+
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Println("--- Welcome to the Number Guessing Game! ---")
+
+	// Game loop for multiple rounds
+	for {
+		// 1. Select random number
+		secretNumber := generateRandomNumber(1, 100)
+		fmt.Println("\nA new game has started. I have picked a number between 1 and 100.")
+
+		// 2. Get user guess
+		guess, err := getGuess(reader)
+		if err != nil {
+			fmt.Printf("Error reading input: %v. Exiting.\n", err)
+			break
+		}
+
+		// 3. Provide feedback
+		if guess < secretNumber {
+			fmt.Println("Too low! Try again.")
+		} else if guess > secretNumber {
+			fmt.Println("Too high! Try again.")
+		} else {
+			fmt.Println("Congratulations! You guessed the number correctly.")
+		}
+
+		// 4. Ask to play again
+		fmt.Print("Do you want to play again? (yes/no): ")
+		playAgainInput, err := reader.ReadString('\n') // Read until newline
+		if err != nil {
+			fmt.Printf("Error reading play again input: %v. Exiting.\n", err)
+			break
+		}
+		playAgain := strings.ToLower(strings.TrimSpace(playAgainInput)) == "yes"
+
+		if !playAgain {
+		fmt.Println("Thanks for playing! Goodbye.")
+			break
+		}
+	}
+}
+EOF
+
+=== [BUILDER_OUTPUT] ===
+STDOUT:
+
+STDERR:
+
+
+=== [TESTER_THOUGHT] ===
+Test generateRandomNumber to ensure it produces values within the specified range.
+
+=== [TESTER_COMMAND] ===
+cat << 'EOF' > src/main_test.go
+package main
+
+import (
+	"testing"
+)
+
+func TestGenerateRandomNumber(t *testing.T) {
+	// Test boundaries for min=1, max=100
+	// Since rand is seeded globally, we test a few iterations to check range.
+	for i := 0; i < 1000; i++ {
+		num := generateRandomNumber(1, 100)
+		if num < 1 || num > 100 {
+			t.Errorf("generateRandomNumber(%d, %d) returned %d, which is out of range [1, 100]", 1, 100, num)
+		}
+	}
+}
+EOF
+go test -v ./...
+
+=== [TESTER_OUTPUT] ===
+STDOUT:
+=== RUN   TestGenerateRandomNumber
+--- PASS: TestGenerateRandomNumber (0.00s)
+PASS
+ok  	game/src	0.002s
+
+STDERR:
+
