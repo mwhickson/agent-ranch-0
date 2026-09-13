@@ -10,7 +10,13 @@ A locally-based agentic workflow system based around human-guided task completio
 ```
 2. Edit specification (`projects/myawesomeproject/PROJECT_SPEC.md`).
 3. Edit prompts (`project/prompts/builder_system.txt`, `project/prompts/planner_system.txt`, `project/prompts/tester_system.txt`).
-4. Run the pipeline.
+4. For a Go project:
+```bash
+cd projects/myawesomeproject
+go mod init myawesomeproject
+cd ../..
+```
+5. Run the pipeline.
 ```bash
 python3 run.py projects/myawesomeproject
 ```

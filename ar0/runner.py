@@ -3,6 +3,9 @@ import subprocess
 from ar0.config import Config
 
 class TaskRunner:
+    # Extensions worth reading into prompt context to keep LLM informed
+    CONTEXT_EXTENSIONS = ('.go', '.mod', '.py', '.json', '.yaml', '.yml', '.toml', '.md')
+
     def __init__(self, config: Config):
         self.config = config
 
@@ -27,8 +30,8 @@ class TaskRunner:
                 rel_path = os.path.join(rel_root, f) if rel_root else f
                 tree_output.append(rel_path)
 
-                # Read contents of source files so Builder never needs to 'cat' them
-                if f.endswith('.py') and ('src' in rel_path or 'tests' in rel_path):
+                # Capture code, build manifests, and config files across languages
+                if f.endswith(self.CONTEXT_EXTENSIONS):
                     full_path = os.path.join(root, f)
                     try:
                         with open(full_path, 'r', encoding='utf-8') as file_ref:
@@ -38,9 +41,20 @@ class TaskRunner:
 
         context = f"PROJECT ROOT: {project_root}\n\n"
         context += "WORKSPACE STRUCTURE:\n" + ("\n".join(f"- {p}" for p in tree_output) if tree_output else "- (empty)") + "\n\n"
-        context += "EXISTING FILE CONTENTS:\n" + ("\n".join(file_contents) if file_contents else "(No python files written yet)")
+        context += "EXISTING FILE CONTENTS:\n" + ("\n".join(file_contents) if file_contents else "(No source files written yet)")
 
         return context
+
+    def validate_go_syntax(self) -> tuple[bool, str]:
+        # Checks go module syntax and structural types without building binaries
+        res = subprocess.run(
+            "go vet ./...",
+            shell=True, capture_output=True, text=True,
+            cwd=self.config.project_dir
+        )
+        if res.returncode != 0:
+            return False, f"Go compilation/syntax error:\n{res.stderr}"
+        return True, ""
 
     def validate_python_syntax(self) -> tuple[bool, str]:
         src_dir = os.path.join(self.config.project_dir, "src")
@@ -59,8 +73,23 @@ class TaskRunner:
                         return False, f"Syntax error in {full_path}:\n{res.stderr}"
         return True, ""
 
+    def validate_syntax(self) -> tuple[bool, str]:
+        """Dynamically detects active project language and applies appropriate syntax check."""
+        has_go = os.path.exists(os.path.join(self.config.project_dir, "go.mod"))
+        
+        if not has_go:
+            # Fallback scan for .go files if go.mod hasn't been generated yet
+            for _, _, files in os.walk(self.config.project_dir):
+                if any(f.endswith('.go') for f in files):
+                    has_go = True
+                    break
+
+        if has_go:
+            return self.validate_go_syntax()
+        
+        return self.validate_python_syntax()
+
     def execute_shell(self, command: str) -> subprocess.CompletedProcess:
-        # Build dynamic PYTHONPATH including the project root and its src/ directory
         project_root = os.path.abspath(self.config.project_dir)
         src_dir = os.path.join(project_root, "src")
 
@@ -75,6 +104,6 @@ class TaskRunner:
             shell=True,
             capture_output=True,
             text=True,
-            cwd=self.config.project_dir,  # Ensures commands execute inside the project directory
+            cwd=self.config.project_dir,
             env=env
         )

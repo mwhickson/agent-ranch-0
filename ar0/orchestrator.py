@@ -73,7 +73,7 @@ class Orchestrator:
 
         return parsed
 
-    def run_tester_phase(self, task_id: str, description: str, builder_output: str, is_noop: bool = False, test_error_context: str = None) -> tuple[bool, str]:
+    def run_tester_phase(self, task_id: str, description: str, builder_output: str, test_error_context: str = None) -> tuple[bool, str]:
         system_prompt = self.load_prompt("tester_system.txt")
         context = self.runner.get_workspace_context()
 
@@ -85,7 +85,7 @@ class Orchestrator:
                 f"{test_error_context}\n\n"
                 f"INSTRUCTION: Inspect the source code in workspace context versus your test code. "
                 f"If the failure was caused by a bug in your test logic, mock side_effects, or missing/incorrect assertions, "
-                f"REWRITE AND FIX YOUR TEST FILE in `tests/`. Do NOT change the source code in `src/`."
+                f"REWRITE AND FIX YOUR TEST FILE. Do NOT change the source code in `src/`."
             )
         else:
             user_prompt = (
@@ -138,9 +138,9 @@ class Orchestrator:
                 print("[ORCHESTRATOR] Builder phase failed (read-only command or invalid JSON). Retrying attempt...")
                 self.db.update_task_status(task_id, 'FAIL', increment_retry=True)
                 retries += 1
-                last_feedback = "CRITICAL ERROR: Read-only bash commands (e.g. 'cat', 'ls') are strictly forbidden! You MUST write code using 'cat << EOF > src/file.py' or return a 'no_op'."
+                last_feedback = "CRITICAL ERROR: Read-only bash commands (e.g. 'cat', 'ls') are strictly forbidden! You MUST write code using write redirection (e.g. 'cat << EOF > file') or return a 'no_op'."
                 self.db.log_verification(task_id, 'SYSTEM', 'FAIL', last_feedback)
-                continue  # Loop back for immediate retry
+                continue
 
             self.runner.log_to_file(task_id, "BUILDER_THOUGHT", builder_payload.get("thought", "N/A"))
             self.runner.log_to_file(task_id, "BUILDER_COMMAND", builder_payload["command"])
@@ -148,41 +148,45 @@ class Orchestrator:
             print(f"\n[BUILDER THOUGHT]: {builder_payload.get('thought', 'N/A')}")
             print(f"[BUILDER COMMAND]:\n{builder_payload['command']}\n")
 
-            if input("Approve BUILDER execution? (y/n): ").strip().lower() != 'y':
-                print("[ORCHESTRATOR] Builder denied by human operator.")
-                return "BLOCKED"
-
             is_builder_noop = builder_payload.get("action") == "no_op" or builder_payload["command"].strip() == "NO_OP"
 
             if is_builder_noop:
-                print("\n[BUILDER RESULT] Task already satisfied. Skipping code execution...")
-                builder_output = "NO_CHANGES: Code was already implemented."
-            else:
-                res = self.runner.execute_shell(builder_payload['command'])
-                self.runner.log_to_file(task_id, "BUILDER_OUTPUT", f"STDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}")
+                print("\n[BUILDER RESULT] Task already satisfied (NO_OP). Skipping execution and verification.")
+                self.db.update_task_status(task_id, 'PASS')
+                self.db.log_verification(task_id, 'SYSTEM', 'PASS', "Task satisfied via NO_OP.")
+                return "PASS"
 
-                if res.returncode != 0:
-                    print(f"[BUILDER RESULT] FAIL (Exit Code {res.returncode})")
-                    self.db.update_task_status(task_id, 'FAIL', increment_retry=True)
-                    self.db.log_verification(task_id, 'TESTER', 'FAIL', res.stderr if res.stderr else res.stdout)
-                    retries += 1
-                    continue
+            # Execute builder command before human approval to perform syntax check
+            res = self.runner.execute_shell(builder_payload['command'])
+            self.runner.log_to_file(task_id, "BUILDER_OUTPUT", f"STDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}")
 
-                valid_syntax, syntax_error = self.runner.validate_python_syntax()
-                if not valid_syntax:
-                    print(f"\n[BUILDER RESULT] FAIL - Code broke Python syntax checks!")
-                    print(syntax_error)
-                    self.db.update_task_status(task_id, 'FAIL', increment_retry=True)
-                    self.db.log_verification(task_id, 'TESTER', 'FAIL', syntax_error)
-                    retries += 1
-                    continue
+            if res.returncode != 0:
+                print(f"[BUILDER RESULT] FAIL - Shell command execution error (Exit Code {res.returncode})")
+                print(res.stderr if res.stderr else res.stdout)
+                self.db.update_task_status(task_id, 'FAIL', increment_retry=True)
+                self.db.log_verification(task_id, 'SYSTEM', 'FAIL', res.stderr if res.stderr else res.stdout)
+                retries += 1
+                continue
 
-                builder_output = builder_payload.get("command", "")
+            valid_syntax, syntax_error = self.runner.validate_syntax()
+            if not valid_syntax:
+                print(f"\n[BUILDER RESULT] FAIL - Code broke syntax/compiler checks!")
+                print(syntax_error)
+                self.db.update_task_status(task_id, 'FAIL', increment_retry=True)
+                self.db.log_verification(task_id, 'SYSTEM', 'FAIL', syntax_error)
+                retries += 1
+                continue
 
+            # Code executed cleanly and passed syntax check—now request human approval
+            if input("Approve BUILDER execution and proceed to testing? (y/n): ").strip().lower() != 'y':
+                print("[ORCHESTRATOR] Builder denied by human operator.")
+                return "BLOCKED"
+
+            builder_output = builder_payload.get("command", "")
             self.db.update_task_status(task_id, 'REVIEW_PENDING')
 
             # 2. VERIFICATION / TESTER PHASE
-            print("\n[ORCHESTRATOR] Builder phase complete. Handing off to TESTER agent...")
+            print("\n[ORCHESTRATOR] Builder phase complete and validated. Handing off to TESTER agent...")
 
             tester_loop_active = True
             test_error_context = None
@@ -197,7 +201,7 @@ class Orchestrator:
                         print(f"\n[ORCHESTRATOR] Asking TESTER to review/fix its own test suite (Attempt {test_attempt + 1}/{max_tester_retries})...")
 
                     passed, test_feedback = self.run_tester_phase(
-                        task_id, description, builder_output, is_noop=is_builder_noop, test_error_context=test_error_context
+                        task_id, description, builder_output, test_error_context=test_error_context
                     )
 
                     if passed:
@@ -219,20 +223,18 @@ class Orchestrator:
                 if choice == 'p':
                     print("[ORCHESTRATOR] Manual PASS override accepted by operator.")
                     self.db.update_task_status(task_id, 'PASS')
-                    self.db.log_verification(task_id, 'TESTER', 'PASS', "Manual operator override.")
+                    self.db.log_verification(task_id, 'REVIEWER', 'PASS', "Manual operator override.")
                     return "PASS"
                 elif choice == 't':
                     print("[ORCHESTRATOR] Forcing another Tester retry...")
-                    # Re-run tester loop with error context without leaving to Builder
                     test_error_context = test_feedback
                     continue
                 else:
-                    # Choice 'b' or default: Reject and send feedback to Builder
                     print("[ORCHESTRATOR] Rejecting build and sending feedback to Builder...")
                     self.db.update_task_status(task_id, 'FAIL', increment_retry=True)
                     self.db.log_verification(task_id, 'TESTER', 'FAIL', test_feedback)
                     retries += 1
-                    tester_loop_active = False  # Break out to Builder loop
+                    tester_loop_active = False
 
         print(f"[ORCHESTRATOR] Task {task_id} BLOCKED: Retry limit reached.")
         self.db.update_task_status(task_id, 'BLOCKED')
