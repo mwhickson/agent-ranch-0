@@ -140,7 +140,7 @@ class Orchestrator:
                 retries += 1
                 last_feedback = "CRITICAL ERROR: Read-only bash commands (e.g. 'cat', 'ls') are strictly forbidden! You MUST write code using 'cat << EOF > src/file.py' or return a 'no_op'."
                 self.db.log_verification(task_id, 'SYSTEM', 'FAIL', last_feedback)
-                continue  # <--- Loop back for an immediate retry!
+                continue  # Loop back for immediate retry
 
             self.runner.log_to_file(task_id, "BUILDER_THOUGHT", builder_payload.get("thought", "N/A"))
             self.runner.log_to_file(task_id, "BUILDER_COMMAND", builder_payload["command"])
@@ -177,7 +177,6 @@ class Orchestrator:
                     retries += 1
                     continue
 
-                # PASS BUILDER COMMAND / CODE PAYLOAD TO TESTER
                 builder_output = builder_payload.get("command", "")
 
             self.db.update_task_status(task_id, 'REVIEW_PENDING')
@@ -185,30 +184,33 @@ class Orchestrator:
             # 2. VERIFICATION / TESTER PHASE
             print("\n[ORCHESTRATOR] Builder phase complete. Handing off to TESTER agent...")
 
-            max_tester_retries = 2
+            tester_loop_active = True
             test_error_context = None
-            passed = False
-            test_feedback = ""
 
-            for test_attempt in range(max_tester_retries):
-                if test_attempt > 0:
-                    print(f"\n[ORCHESTRATOR] Asking TESTER to review/fix its own test suite (Attempt {test_attempt + 1}/{max_tester_retries})...")
+            while tester_loop_active:
+                max_tester_retries = 2
+                passed = False
+                test_feedback = ""
 
-                passed, test_feedback = self.run_tester_phase(
-                    task_id, description, builder_output, is_noop=is_builder_noop, test_error_context=test_error_context
-                )
+                for test_attempt in range(max_tester_retries):
+                    if test_attempt > 0:
+                        print(f"\n[ORCHESTRATOR] Asking TESTER to review/fix its own test suite (Attempt {test_attempt + 1}/{max_tester_retries})...")
+
+                    passed, test_feedback = self.run_tester_phase(
+                        task_id, description, builder_output, is_noop=is_builder_noop, test_error_context=test_error_context
+                    )
+
+                    if passed:
+                        break
+                    else:
+                        test_error_context = test_feedback
 
                 if passed:
-                    break
-                else:
-                    test_error_context = test_feedback
+                    print("\n[VERIFICATION RESULT] PASS! Task complete.")
+                    self.db.update_task_status(task_id, 'PASS')
+                    self.db.log_verification(task_id, 'TESTER', 'PASS', test_feedback)
+                    return "PASS"
 
-            if passed:
-                print("\n[VERIFICATION RESULT] PASS! Task complete.")
-                self.db.update_task_status(task_id, 'PASS')
-                self.db.log_verification(task_id, 'TESTER', 'PASS', test_feedback)
-                return "PASS"
-            else:
                 print(f"\n[VERIFICATION RESULT] FAIL! Unit tests failed.\n--- Failure Context ---\n{test_feedback}\n-----------------------")
 
                 # Interactive Operator Choice
@@ -220,21 +222,17 @@ class Orchestrator:
                     self.db.log_verification(task_id, 'TESTER', 'PASS', "Manual operator override.")
                     return "PASS"
                 elif choice == 't':
-                    print("[ORCHESTRATOR] Forcing another Tester iteration...")
-                    # Loop back or handle as needed; for now, let's treat as builder retry with tester context
-                    self.db.log_verification(task_id, 'TESTER', 'FAIL', test_feedback)
-                    retries += 1
+                    print("[ORCHESTRATOR] Forcing another Tester retry...")
+                    # Re-run tester loop with error context without leaving to Builder
+                    test_error_context = test_feedback
                     continue
                 else:
                     # Choice 'b' or default: Reject and send feedback to Builder
+                    print("[ORCHESTRATOR] Rejecting build and sending feedback to Builder...")
                     self.db.update_task_status(task_id, 'FAIL', increment_retry=True)
                     self.db.log_verification(task_id, 'TESTER', 'FAIL', test_feedback)
                     retries += 1
-
-            # If tests still fail after Tester self-audit, only THEN blame Builder
-            print(f"\n[VERIFICATION RESULT] FAIL! Feedback captured for Builder retry.")
-            self.db.update_task_status(task_id, 'FAIL', increment_retry=True)
-            self.db.log_verification(task_id, 'TESTER', 'FAIL', test_feedback)
+                    tester_loop_active = False  # Break out to Builder loop
 
         print(f"[ORCHESTRATOR] Task {task_id} BLOCKED: Retry limit reached.")
         self.db.update_task_status(task_id, 'BLOCKED')

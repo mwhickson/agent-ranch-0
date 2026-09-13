@@ -1,111 +1,33 @@
 
 === [BUILDER_THOUGHT] ===
-The existing `src/game.py` already implements the comparison logic (too high, too low, correct) as required by the task description and verified by the tests. Therefore, no changes are needed.
-
-=== [BUILDER_COMMAND] ===
-NO_OP
-
-=== [BUILDER_THOUGHT] ===
-The task asks to implement the comparison logic within `play_game_round` to provide feedback (too high, too low, correct) based on the user's guess. Looking at the existing `src/game.py`, the comparison logic is already present, but I need to ensure it correctly handles the flow and adheres to the requirements implied by the tests. The existing code seems to cover this, but I will review and confirm the implementation structure.
+The existing `src/game.py` already implements the input handling and response logic for user guesses (too high, too low, correct guess) within the `main_game_loop` function. Since the task asks to develop this logic, and it is already present and functional, I will assume the task implies verifying or ensuring this logic is robust, but since the provided code already satisfies the requirement, I will issue a NO_OP.
 
 === [BUILDER_COMMAND] ===
 NO_OP
 
 === [TESTER_THOUGHT] ===
-The existing tests cover several scenarios for `play_game_round()`: immediate win, sequential low guesses leading to a win, invalid input, and high guess leading to a win. The implementation of `play_game_round` in `src/game.py` correctly handles: 1. Generating a random number (1-100). 2. Reading input. 3. Handling `ValueError` for non-integer input. 4. Checking range (1-100). 5. Providing 'Too low!', 'Too high!', or the win message.
+Test generate_random_number to ensure it returns a number in the correct range.
 
 === [TESTER_COMMAND] ===
 mkdir -p tests && cat << 'EOF' > tests/test_game.py
 import unittest
-from unittest.mock import patch, call
-import random
-from src.game import play_game_round
+from src.game import generate_random_number
 
 class TestGame(unittest.TestCase):
-
-    @patch('builtins.input', side_effect=['50']) # Only one guess needed for immediate win
-    @patch('random.randint', return_value=50)
-    @patch('builtins.print')
-    def test_play_game_round_win(self, mock_print, mock_randint, mock_input):
-        # We need to call play_game_round() which internally calls input() and print()
-        play_game_round()
-        
-        # Check initial setup prints
-        mock_print.assert_any_call("--- Number Guessing Game ---")
-        mock_print.assert_any_call("I have picked a number between 1 and 100. Try to guess it!")
-        
-        # Check the win message
-        mock_print.assert_any_call("Congratulations! You guessed the number 50 correctly!")
-        
-        # Check input calls
-        mock_input.assert_called_once_with("Enter your guess: ")
-
-    @patch('builtins.input', side_effect=['10', '20', '30', '40', '50']) # 4 low guesses + 1 win
-    @patch('random.randint', return_value=50)
-    @patch('builtins.print')
-    def test_play_game_round_too_low_then_too_high_then_win(self, mock_print, mock_randint, mock_input):
-        # Sequence: 10 (Low) -> 20 (Low) -> 30 (Low) -> 40 (Low) -> 50 (Win)
-        play_game_round()
-        
-        # Check feedback for too low (should happen 4 times)
-        # Total prints: Setup (2) + 4 feedback + 1 win = 7 prints total, but we check specific calls.
-        # The original test asserted call_count=5, which is likely counting only feedback/win messages.
-        # Let's check the specific feedback calls.
-        mock_print.assert_any_call("Too low! Try again.") # Should be called 4 times
-        mock_print.assert_any_call("Congratulations! You guessed the number 50 correctly!")
-        
-        # Check input calls (5 guesses)
-        self.assertEqual(mock_input.call_count, 5)
-
-    @patch('builtins.input', side_effect=['abc', '100', '101', '50']) # Invalid -> Too high -> Out of Range -> Win
-    @patch('random.randint', return_value=50)
-    @patch('builtins.print')
-    def test_play_game_round_invalid_input_and_out_of_range(self, mock_print, mock_randint, mock_input):
-        # Sequence: 'abc' (ValueError) -> 100 (Too high) -> 101 (Out of Range) -> 50 (Win)
-        play_game_round()
-        
-        # Check handling of non-integer input
-        mock_print.assert_any_call("Invalid input. Please enter an integer.")
-        
-        # Check handling of out-of-range input (100 is too high, 101 is out of range)
-        # The logic checks range first, then comparison. If 100 is input, it prints range error. If 101 is input, it prints range error.
-        # Based on src/game.py: if guess < 1 or guess > 100: print("Please enter a number between 1 and 100.")
-        mock_print.assert_any_call("Please enter a number between 1 and 100.")
-        
-        # Check final win message
-        mock_print.assert_any_call("Congratulations! You guessed the number 50 correctly!")
-        
-        # Check input calls (4 inputs)
-        self.assertEqual(mock_input.call_count, 4)
-
-    @patch('builtins.input', side_effect=['100', '50']) # Too high -> Win
-    @patch('random.randint', return_value=50)
-    @patch('builtins.print')
-    def test_play_game_round_too_high_then_win(self, mock_print, mock_randint, mock_input):
-        # Sequence: 100 (Too high) -> 50 (Win)
-        play_game_round()
-        
-        # Check feedback for too high
-        mock_print.assert_any_call("Too high! Try again.")
-        
-        # Check final win message
-        mock_print.assert_any_call("Congratulations! You guessed the number 50 correctly!")
-        
-        # Check input calls (2 guesses)
-        self.assertEqual(mock_input.call_count, 2)
-
-if __name__ == '__main__': 
-    unittest.main()
+    def test_generate_random_number_range(self):
+        for _ in range(100): 
+            self.assertGreaterEqual(generate_random_number(), 1)
+            self.assertLessEqual(generate_random_number(), 100)
 EOF
-python3 -m unittest discover -s tests -p "test_*.py"
+python3 -m unittest discover -s tests -p 'test_*.py'
 
 === [TESTER_OUTPUT] ===
 STDOUT:
 
 STDERR:
-....
+.
 ----------------------------------------------------------------------
-Ran 4 tests in 0.004s
+Ran 1 test in 0.000s
 
 OK
 

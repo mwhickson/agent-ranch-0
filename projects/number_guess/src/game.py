@@ -1,54 +1,47 @@
 import random
 
-def play_game_round():
-    """
-    Implements the core logic for a single round of the number guessing game.
-    Generates a random number and handles user input.
-    """
-    secret_number = random.randint(1, 100)
-    print("--- Number Guessing Game ---")
-    print("I have picked a number between 1 and 100. Try to guess it!")
+def generate_random_number():
+    """Generates a random integer between 1 and 100 inclusive."""
+    return random.randint(1, 100)
 
-    while True:
+def main_game_loop():
+    """Implements the core game loop structure for a single round."""
+    print("--- Welcome to the Number Guessing Game! ---")
+    secret_number = generate_random_number()
+    attempts = 0
+    guess = None
+
+    while guess != secret_number:
         try:
-            # Input handling
-            guess_input = input("Enter your guess: ")
+            guess_input = input(f"Enter your guess (1-100): ")
             guess = int(guess_input)
-            
-            # Range check
+            attempts += 1
+
             if guess < 1 or guess > 100:
                 print("Please enter a number between 1 and 100.")
                 continue
 
-            # Comparison logic
             if guess < secret_number:
                 print("Too low! Try again.")
             elif guess > secret_number:
                 print("Too high! Try again.")
             else:
-                print(f"Congratulations! You guessed the number {secret_number} correctly!")
+                print(f"Congratulations! You guessed the number {secret_number} in {attempts} attempts.")
                 break
         except ValueError:
-            # Non-integer input handling
-            print("Invalid input. Please enter an integer.")
+            print("Invalid input. Please enter a valid integer.")
+
 
 def main():
-    """
-    Manages the game loop, allowing the user to play multiple rounds.
-    """
+    """Main application entry point to handle multiple game rounds."""
     while True:
-        play_game_round()
+        main_game_loop()
         
-        while True:
-            # FIX: Corrected syntax error here. The original error was likely due to improper string formatting or missing closing parenthesis.
-            play_again = input("Do you want to play again? (y/n): ".lower().strip())
-            if play_again in ('y', 'yes'):
-                break
-            elif play_again in ('n', 'no'):
-                print("Thanks for playing! Goodbye.")
-                return
-            else:
-                print("Invalid input. Please enter 'y' or 'n'.")
+        # Ask user if they want to play again
+        play_again = input("Do you want to play another round? (y/n): ").lower()
+        if play_again != 'y':
+            print("Thank you for playing! Goodbye.")
+            break
 
 if __name__ == "__main__":
     main()
