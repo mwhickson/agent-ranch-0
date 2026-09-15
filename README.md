@@ -43,5 +43,17 @@ python3 -m unittest discover -s tests -p "test_*.py"
 
 - [Koboldcpp](https://github.com/LostRuins/koboldcpp)
 - Gemma 4 (Unsloth QAT models)
+    - [gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf](https://huggingface.co/unsloth/gemma-4-26B-A4B-it-qat-GGUF)
+    - gemma-4-12B-it-qat-UD-Q4_K_XL.gguf (runs, but produced empty JSON array at the planning stage repeatedly)
     - [gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf](https://huggingface.co/unsloth/gemma-4-E2B-it-qat-GGUF) **PREFERRED**
     - [gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf](https://huggingface.co/unsloth/gemma-4-E4B-it-qat-GGUF)
+
+## Hardware
+
+Lest you think I am running some supercomputer, my hardware specs are as follows:
+
+**Dell XPS 8900**
+- **CPU:** Intel Core i7-6700 (Skylake-S)
+- **GPU:** Intel HD Graphics 530
+- **SSD:** SATA 256GB (6.0 Gb/s)
+- **RAM:** 24 GiB

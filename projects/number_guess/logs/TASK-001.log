@@ -1,0 +1,107 @@
+
+=== [BUILDER_THOUGHT] ===
+I will implement the core game engine logic in `src/game.py`. Following the decoupling rule, I will separate the random number generation and the comparison logic into pure functions, and then implement a main CLI loop to handle user interaction.
+
+=== [BUILDER_COMMAND] ===
+mkdir -p src && cat << 'EOF' > src/game.py
+import random
+
+def generate_target(min_val: int = 1, max_val: int = 100) -> int:
+    """Generates a random target number within the specified range."""
+    return random.randint(min_val, max_val)
+
+def evaluate_guess(secret: int, guess: int) -> str:
+    """Compares the guess to the secret number and returns the result message."""
+    if guess < secret:
+        return "too low"
+    elif guess > secret:
+        return "too high"
+    else:
+        return "correct"
+
+def play_round():
+    """Handles a single round of the guessing game."""
+    target = generate_target()
+    print("\nI'm thinking of a number between 1 and 100.")
+    
+    while True:
+        try:
+            user_input = input("Enter your guess: ")
+            guess = int(user_input)
+        except ValueError:
+            print("Please enter a valid integer.")
+            continue
+
+        result = evaluate_guess(target, guess)
+        
+        if result == "correct":
+            print("Congratulations! You guessed it!")
+            break
+        else:
+            print(f"Your guess was {result}.")
+
+def main():
+    """Main entry point for the game loop."""
+    print("Welcome to the Number Guessing Game!")
+    
+    while True:
+        play_round()
+        
+        choice = input("Would you like to play again? (y/n): ").strip().lower()
+        if choice != 'y':
+            print("Thanks for playing! Goodbye.")
+            break
+
+if __name__ == "__main__":
+    main()
+EOF
+
+=== [BUILDER_OUTPUT] ===
+STDOUT:
+
+STDERR:
+
+
+=== [REVIEWER_THOUGHT] ===
+The code is well-structured and adheres to the decoupling principles. The core business logic (generating the target number and evaluating the guess) is encapsulated in pure helper functions (`generate_target` and `evaluate_guess`) that do not perform any I/O. The interactive loops (`play_round` and `main`) are separated from the logic, making the core engine easily testable via unit tests.
+
+=== [TESTER_THOUGHT] ===
+Testing pure functions `generate_target` and `evaluate_guess` in `src/game.py`.
+
+=== [TESTER_COMMAND] ===
+mkdir -p tests && cat << 'EOF' > tests/test_game.py
+import unittest
+from src.game import generate_target, evaluate_guess
+
+class TestGame(unittest.TestCase):
+    def test_generate_target_range(self):
+        for _ in range(100):
+            target = generate_target(1, 10)
+            self.assertTrue(1 <= target <= 10)
+
+    def test_evaluate_guess_low(self):
+        self.assertEqual(evaluate_guess(50, 25), "too low")
+        self.assertEqual(evaluate_guess(50, 49), "too low")
+
+    def test_evaluate_guess_high(self):
+        self.assertEqual(evaluate_guess(50, 75), "too high")
+        self.assertEqual(evaluate_guess(50, 51), "too high")
+
+    def test_evaluate_guess_correct(self):
+        self.assertEqual(evaluate_guess(50, 50), "correct")
+
+if __name__ == '__main__':
+    unittest.main()
+EOF
+python3 -m unittest discover -s tests -p "test_*.py"
+
+=== [TESTER_OUTPUT] ===
+STDOUT:
+
+STDERR:
+....
+----------------------------------------------------------------------
+Ran 4 tests in 0.000s
+
+OK
+

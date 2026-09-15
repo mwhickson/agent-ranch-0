@@ -35,25 +35,25 @@ class LLMClient:
         if not raw_text or raw_text.strip() in ("[]", "{}"):
             return None
 
-        if not raw_text:
-            return None
-
         def unwrap(data):
             # If the LLM wrapped a single JSON object inside a single-element list, unwrap it!
             if isinstance(data, list) and len(data) == 1 and isinstance(data[0], dict):
                 return data[0]
             return data
 
+        # Pre-clean stray prefix noise inside array declarations (e.g., "[\n -1,\n {...")
+        cleaned_text = re.sub(r'^\s*\[\s*-[0-9]+\s*,\s*', '[', raw_text.strip())
+
         # Standard parse attempt
         try:
-            data = json.loads(raw_text.strip())
+            data = json.loads(cleaned_text)
             if isinstance(data, (dict, list)):
                 return unwrap(data)
         except json.JSONDecodeError:
             pass
 
         # Regex capture fallback
-        json_match = re.search(r'(\{.*\}|\[.*\])', raw_text, re.DOTALL)
+        json_match = re.search(r'(\{.*\}|\[.*\])', cleaned_text, re.DOTALL)
         if json_match:
             extracted = json_match.group(0)
             try:
