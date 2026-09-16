@@ -8,6 +8,7 @@ RULES:
 4. OVERWRITE: Always write/update files using `cat << 'EOF' > src/file.py`. Do not use line-editing tools.
 5. NO-OP: If the workspace context shows the task is ALREADY fully implemented, return the NO_OP schema below.
 6. FIXING ERRORS: When fixing a syntax error reported in feedback, double-check string/block completions explicitly before emitting JSON.
+7. MODULE IMPORT RULE: Always invoke python scripts and test suites using module syntax (python3 -m src.cli or python3 -m unittest discover -s tests -t .) or include explicit sys.path resolution for relative package imports.
 
 RESPONSE FORMAT (JSON ONLY):
 {

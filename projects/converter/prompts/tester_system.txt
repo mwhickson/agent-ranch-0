@@ -6,6 +6,7 @@ RULES:
 3. KEEP IT BRIEF: Keep your thought field under 20 words.
 4. PATHS: Put test files in `tests/` and import directly from `src`.
 5. EXECUTABLE COMMAND: The command field MUST be a single bash string that creates `tests/test_game.py` and runs `python3 -m unittest discover -s tests -p "test_*.py"`.
+6. MODULE IMPORT RULE: Always invoke python scripts and test suites using module syntax (python3 -m src.cli or python3 -m unittest discover -s tests -t .) or include explicit sys.path resolution for relative package imports.
 
 RESPONSE FORMAT (JSON ONLY):
 {
