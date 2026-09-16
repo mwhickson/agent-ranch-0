@@ -1,0 +1,80 @@
+
+=== [BUILDER_THOUGHT] ===
+I will create a new file `src/cli.py` that implements the interactive command-line interface (CLI) test harness. This harness will use the `CONVERSION_MAP` from `src/converter.py` to allow users to select a conversion, input a value, and see the result, as specified in the project requirements.
+
+=== [BUILDER_COMMAND] ===
+cat << 'EOF' > src/cli.py
+"""
+CLI Test Harness for the Converter Library.
+Provides an interactive interface for performing unit conversions.
+"""
+import sys
+from src.converter import CONVERSION_MAP
+
+def run_cli():
+    """
+    Runs the interactive CLI loop.
+    """
+    print("--- Converter Library CLI Test Harness ---")
+    
+    while True:
+        print("\nAvailable Conversions:")
+        for key, (name, _) in CONVERSION_MAP.items():
+            print(f"{key}. {name}")
+        print("Q. Quit")
+
+        choice = input("\nSelect a conversion number (or 'Q' to quit): ").strip().upper()
+
+        if choice == 'Q':
+            print("Exiting CLI. Goodbye!")
+            break
+
+        if choice not in CONVERSION_MAP:
+            print("Invalid selection. Please try again.")
+            continue
+
+        conversion_name, conversion_func = CONVERSION_MAP[choice]
+        
+        try:
+            user_input = input(f"Enter the value to convert ({conversion_name}): ").strip()
+            # Convert input to float for the conversion function
+            value = float(user_input)
+            
+            result = conversion_func(value)
+            print(f"\nResult: {value} -> {result:.6f}")
+            
+        except ValueError as e:
+            # This catches both float conversion errors and the library's _validate_input errors
+            print(f"Error: {e}")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+
+if __name__ == "__main__":
+    run_cli()
+EOF
+
+=== [BUILDER_OUTPUT] ===
+STDOUT:
+
+STDERR:
+
+
+=== [REVIEWER_THOUGHT] ===
+The code is well-structured and follows the decoupling principles. The core conversion logic is contained in `src/converter.py` as pure functions that take numeric inputs and return numeric outputs, making them highly testable and reusable. The interactive CLI loop in `src/cli.py` is strictly limited to I/O (printing menus, taking input, and displaying results) and delegates all business logic to the `CONVERSION_MAP` and the converter functions. There are no hardcoded stubs or mixed logic.
+
+=== [TESTER_THOUGHT] ===
+The existing tests in `tests/test_converter.py` already cover all pure conversion functions and input validation. I will verify the current test suite passes.
+
+=== [TESTER_COMMAND] ===
+python3 -m unittest discover -s tests -p 'test_converter.py'
+
+=== [TESTER_OUTPUT] ===
+STDOUT:
+
+STDERR:
+.....
+----------------------------------------------------------------------
+Ran 5 tests in 0.000s
+
+OK
+
