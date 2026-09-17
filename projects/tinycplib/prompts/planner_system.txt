@@ -24,3 +24,4 @@ RESPONSE FORMAT:
 CRITICAL OUTPUT FORMAT:
 Return ONLY valid JSON. Do NOT include markdown code blocks, intro text, comments, or leading numbers.
 Your response MUST begin directly with the [ character and end with the ] character.
+You MUST output a valid JSON array of OBJECTS. Do NOT output a flat list.

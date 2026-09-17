@@ -28,10 +28,13 @@ A Tiny Computer Person can be defined by the following attributes:
 Overall status is determined by evaluating the current state of the Metric values recorded for a Tiny Computer Person.
 
 Allowable values (in descending order of desirability) are:
-- Content (most desirable)
-- Comfortable
-- Uncomfortable
-- Miserable (least desirable)
+- Content (most desirable) - 3 of 5 metrics in Good Status; 0 metrics in Bad Status
+- Comfortable - 0 metrics in Bad Status
+- Neutral - Default state, covers any Status not otherwise covered
+- Uncomfortable - 0 metrics in Good Status
+- Miserable (least desirable) - 3 of 5 metrics in Bad Status; 0 metrics in Good Status
+
+> NOTE: Good Status and Bad Status are detailed below in the Metrics List table.
 
 ### Metrics List
 
@@ -39,13 +42,16 @@ Metrics are rated on a scale from 0 to 255 and change over time.
 
 Managing Metrics defining the state of a Tiny Computer Person are:
 
-| Name | Minimum Value | Maximum Value | Default Value | Desired Value |
-| - | - | - | - | - |
-| Energy | 0 | 255 | 255 | 255 |
-| Happiness | 0 | 255 | 255 | 255 |
-| Hunger | 0 | 255 | 0 | 0 |
-| Hygiene | 0 | 255 | 255 | 255 |
-| Thirst | 0 | 255 | 0 | 0 |
+| Name | Minimum Value | Maximum Value | Default Value | Desired Value | Good Status | Bad Status |
+| - | - | - | - | - | - | - |
+| Energy | 0 | 255 | 255 | 255 | >= 200 | <= 100 |
+| Happiness | 0 | 255 | 255 | 255 | >= 200 | <= 100 |
+| Hunger | 0 | 255 | 0 | 0 | <= 200 | >= 100 |
+| Hygiene | 0 | 255 | 255 | 255 | >= 200 | <= 100 |
+| Thirst | 0 | 255 | 0 | 0 | <= 200 | >= 100 |
+
+- All metric updates must be clamped to [0, 255] after every TimeUnit calculation.
+- Hunger and Thirst are inverted metrics where 0 is ideal. Lower values represent Good Status and higher values represent Bad Status.
 
 ### Locations List
 
@@ -61,22 +67,25 @@ Locations available for a Tiny Computer Person to inhabit are:
 
 Activities a Tiny Computer Person may undertake include:
 
-| Name | Purpose | Required Location | Effect |
-| - | - | - | - |
-| Cleaning (themselves) | Improve Hygiene Score | Bathroom | +5 Hygiene per TimeUnit; -1 Energy per TimeUnit |
-| Doing Nothing | Default State | Any | -3 Energy per TimeUnit |
-| Drinking | Improve Thirst Score | Kitchen | +5 Thirst per TimeUnit; -1 Energy per TimeUnit |
-| Eating | Improve Hunger Score | Kitchen | +5 Hunger per TimeUnit; -2 Energy per TimeUnit |
-| Housework | Improve Hygiene Score | Any | +10 Hygiene per TimeUnit; -3 Energy per TimeUnit |
-| Listening to Music | Improve Happiness Score | Living Room | +3 Happiness per TimeUnit; -2 Energy per TimeUnit |
-| Playing a Game | Improve Happiness Score | Living Room | +5 Happiness per TimeUnit; -2 Energy per TimeUnit |
-| Reading a Book | Improve Happiness Score | Living Room | +3 Happiness per TimeUnit; -1 Energy per TimeUnit |
-| Sleeping | Improve Energy Score | Bedroom | +5 Energy per TimeUnit; -1 Hunger per TimeUnit; -1 Thirst per TimeUnit |
-| Thinking | Select Next Activity | Any | -5 Energy per TimeUnit |
-| Watching Videos | Improve Happiness Score | Living Room | +3 Happiness per TimeUnit; -1 Energy per TimeUnit |
-| Working | Improve or Lower Happiness Score | Office | +/-5 Happiness per TimeUnit; -5 Energy per TimeUnit |
+| Name | Purpose | Required Location | Energy Change | Happiness Change | Hunger Change | Hygiene Change | Thirst Change |
+| - | - | - | - | - | - | - | - |
+| Cleaning (themselves) | Improve Hygiene Score | Bathroom | -5 | (0, 5) | 0 | (5, 10, 15, 20) | 0 |
+| Doing Nothing | Default State | Any | (-5, 0) | (-5, 0, 5) | (-5, 0) | 0 | (-5, 0) |
+| Drinking | Improve Thirst Score | Kitchen | -5 | (0, 5, 10) | (-5, 0, 5) | (-5, 0, 5) | (-15, -10, -5) |
+| Eating | Improve Hunger Score | Kitchen | -5 | (0, 5, 10) | (-15, -10, -5) | (-10, -5, 0) | (-5, 0, 5) |
+| Housework | Improve Hygiene Score | Any | (-20, -10, -5) | (0, 5, 10) | (0, 5) | (5, 10, 20) | (0, 5) |
+| Listening to Music | Improve Happiness Score | Living Room | -5 | (0, 5, 10) | 0 | 0 | 0 |
+| Playing a Game | Improve Happiness Score | Living Room | (-5, 5) | (-15, -10, -5), (0, 5, 10, 15) | (0, 5) | (-5, 0) | (0, 5) |
+| Reading a Book | Improve Happiness Score | Living Room | -5 | (0, 5, 10) | (0, 5) | 0 | (0, 5) |
+| Sleeping | Improve Energy Score | Bedroom | (-5, 0, 10, 20, 30) | (-5, 0, 5) | (5, 10) | (-10, -5, 0) | (5, 10) |
+| Thinking | Select Next Activity | Any | (-10, -5, 0, 5, 10) | (-5, 0, 5) | (0, 5) | 0 | (0, 5) |
+| Watching Videos | Improve Happiness Score | Living Room | -5 | (-10, -5, 5, 10) | (0, 5) | 0 | (0, 5) |
+| Working | Improve or Lower Happiness Score | Office | (-30, -15, -5) | (-15, -10, -5, 0, 5, 10, 15) | (0, 5, 10) | (-10, -5, 0) | (0, 5, 10) |
 
-> NOTE: Activity effects are only applied at the completion of a TimeUnit. Fractional/decimal effects are NOT to be supported.
+- All changes listed above are per TimeUnit.
+- Some Metric changes are variable, and a value should be randomly determined when applying.
+- Tuples of values represent discrete choice sets (e.g. pick randomly from [-15, -10, -5]), not continuous range bounds.
+- Activity effects are only applied at the completion of a TimeUnit. Fractional/decimal effects are NOT to be supported.
 
 ## Time Tracking in Game
 

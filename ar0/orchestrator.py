@@ -313,8 +313,42 @@ class Orchestrator:
             return False
 
         print(f"\n[PLANNER PROPOSAL] Generated {len(tasks)} tasks:")
+
+        normalized_tasks = []
+
+        # Case 1: 26B output a flat array of [id, role, desc, id, role, desc...]
+        if isinstance(tasks, list) and tasks and isinstance(tasks[0], int):
+            for i in range(0, len(tasks), 3):
+                if i + 2 < len(tasks):
+                    task_id = f"TASK-{abs(tasks[i]):03d}"
+                    role = str(tasks[i+1])
+                    desc = str(tasks[i+2])
+                    normalized_tasks.append({"id": task_id, "role": role, "description": desc})
+
+        # Case 2: Standard list of dicts, strings, or sub-lists
+        elif isinstance(tasks, list):
+            for i, t in enumerate(tasks, 1):
+                if isinstance(t, dict):
+                    normalized_tasks.append({
+                        "id": str(t.get("id", f"TASK-{i:03d}")),
+                        "role": t.get("role", "BUILDER"),
+                        "description": t.get("description", str(t))
+                    })
+                elif isinstance(t, (list, tuple)) and len(t) >= 3:
+                    normalized_tasks.append({
+                        "id": f"TASK-{abs(int(t[0])) if isinstance(t[0], int) else i:03d}",
+                        "role": str(t[1]),
+                        "description": str(t[2])
+                    })
+                elif isinstance(t, str):
+                    normalized_tasks.append({
+                        "id": f"TASK-{i:03d}",
+                        "role": "BUILDER",
+                        "description": t
+                    })
+
         with self.db.get_connection() as conn:
-            for t in tasks:
+            for t in normalized_tasks:
                 print(f"  - [{t['id']}] ({t['role']}): {t['description']}")
                 conn.execute("""
                     INSERT OR REPLACE INTO tasks (id, role, description, status, retry_count)
