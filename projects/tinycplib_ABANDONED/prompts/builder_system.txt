@@ -23,3 +23,7 @@ NO_OP RESPONSE FORMAT:
   "action": "no_op",
   "command": "NO_OP"
 }
+
+CRITICAL CODE GENERATION RULE:
+Do NOT dump large entire files (>100 lines) using `cat << 'EOF' > file.py` in a single command.
+If adding new classes or activity tables, create modular sub-files (e.g., `src/activities.py`) or append to existing files to prevent hitting the 2048 output token limit.

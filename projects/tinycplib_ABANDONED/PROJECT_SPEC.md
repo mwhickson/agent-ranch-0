@@ -46,9 +46,9 @@ Managing Metrics defining the state of a Tiny Computer Person are:
 | - | - | - | - | - | - | - |
 | Energy | 0 | 255 | 255 | 255 | >= 200 | <= 100 |
 | Happiness | 0 | 255 | 255 | 255 | >= 200 | <= 100 |
-| Hunger | 0 | 255 | 0 | 0 | <= 200 | >= 100 |
+| Hunger | 0 | 255 | 0 | 0 | <= 100 | >= 200 |
 | Hygiene | 0 | 255 | 255 | 255 | >= 200 | <= 100 |
-| Thirst | 0 | 255 | 0 | 0 | <= 200 | >= 100 |
+| Thirst | 0 | 255 | 0 | 0 | <= 100 | >= 200 |
 
 - All metric updates must be clamped to [0, 255] after every TimeUnit calculation.
 - Hunger and Thirst are inverted metrics where 0 is ideal. Lower values represent Good Status and higher values represent Bad Status.
